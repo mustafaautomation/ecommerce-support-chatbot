@@ -131,6 +131,12 @@ function migrate(store: Store) {
       conversation_id TEXT,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS channel_links (
+      channel TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      conversation_id TEXT NOT NULL,
+      PRIMARY KEY (channel, external_id)
+    );
     CREATE TABLE IF NOT EXISTS audit (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at TEXT NOT NULL,

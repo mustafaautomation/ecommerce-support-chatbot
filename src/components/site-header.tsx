@@ -30,6 +30,9 @@ export function SiteHeader({ desk = false }: { desk?: boolean }) {
           <Link className="rounded-full px-3 py-1.5 hover:bg-sand/70" href="/policies">
             Notes
           </Link>
+          <Link className="rounded-full px-3 py-1.5 hover:bg-sand/70" href="/embed-demo">
+            Embed
+          </Link>
           <Link
             className={`rounded-full px-3 py-1.5 ${desk ? "bg-kelp text-primary-foreground" : "hover:bg-sand/70"}`}
             href="/admin"

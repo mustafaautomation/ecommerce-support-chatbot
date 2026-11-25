@@ -67,6 +67,8 @@ function reasonLabel(reason: string): string {
       return "Lookup failed more than once, or the shopper said the assistant was not helping.";
     case "human_requested":
       return "The shopper asked for a person.";
+    case "low_confidence":
+      return "Retrieval confidence was too low to answer from the shop notes.";
     case "goodwill_over_limit":
       return "The courtesy request is outside the automatic 10% / $25 cap.";
     default:
@@ -246,10 +248,14 @@ export function runTurn(conversationId: string | null, rawMessage: string, store
       ok: answer.grounded,
       summary: answer.grounded ? `Retrieved ${answer.citations[0]?.title ?? "a note"}` : "No grounded note",
     });
-    text = answer.text;
-    citations.push(...answer.citations);
-    suggestions = suggestionsFor(undefined, "knowledge");
-    if (!answer.grounded) failStreak += 1;
+    if (!answer.grounded) {
+      handoffNow("low_confidence", "normal");
+      text = `I don’t have a Driftwood note that answers that. ${text}`;
+    } else {
+      text = answer.text;
+      citations.push(...answer.citations);
+      suggestions = suggestionsFor(undefined, "knowledge");
+    }
   } else if (intent.type === "product") {
     const outcome = toolProducts(intent.query);
     applyOutcome("product_search", outcome);

@@ -5,6 +5,8 @@ export default defineConfig({
   test: {
     environment: "node",
     fileParallelism: false,
+    maxWorkers: 1,
+    sequence: { concurrent: false },
     env: {
       DW_DB_PATH: ":memory:",
       LLM_PROVIDER: "mock",

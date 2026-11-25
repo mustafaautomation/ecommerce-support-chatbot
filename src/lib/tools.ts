@@ -1,5 +1,6 @@
 import { productBySku, searchProducts } from "@/lib/catalog";
 import type { Store } from "@/lib/db";
+import { logSafe, maskPii } from "@/lib/pii";
 import { couponCode, nextNumber } from "@/lib/ids";
 import { findVerifiedOrder, saveOrder, shipmentEvents } from "@/lib/orders";
 import {
@@ -167,11 +168,10 @@ export function toolStartReturn(
     items.some((chosen) => chosen.id === item.id) ? { ...item, returnedRma: rma } : item,
   );
   saveOrder(store, order);
-  store.run("INSERT INTO audit (at, action, detail) VALUES (?, ?, ?)", [
-    now,
-    kind === "exchange" ? "start_exchange" : "start_return",
-    `${rma} on ${order.number} for ${items.map((item) => item.name).join(", ")}`,
-  ]);
+  const returnAction = kind === "exchange" ? "start_exchange" : "start_return";
+  const returnDetail = maskPii(`${rma} on ${order.number} for ${items.map((item) => item.name).join(", ")}`);
+  store.run("INSERT INTO audit (at, action, detail) VALUES (?, ?, ?)", [now, returnAction, returnDetail]);
+  logSafe(returnAction, returnDetail);
   const card: Card = {
     type: "return_label",
     rma,
@@ -232,11 +232,9 @@ export function toolCancel(
   order.status = "cancelled";
   saveOrder(store, order);
   const now = new Date().toISOString();
-  store.run("INSERT INTO audit (at, action, detail) VALUES (?, ?, ?)", [
-    now,
-    "cancel_order",
-    `${order.number} cancelled before a label was created`,
-  ]);
+  const cancelDetail = maskPii(`${order.number} cancelled before a label was created`);
+  store.run("INSERT INTO audit (at, action, detail) VALUES (?, ?, ?)", [now, "cancel_order", cancelDetail]);
+  logSafe("cancel_order", cancelDetail);
   return {
     ok: true,
     summary: `Cancelled ${order.number}`,
@@ -280,11 +278,13 @@ export function toolGoodwill(
       now,
     ],
   );
+  const couponDetail = maskPii(`${code} on ${order.number}: ${decision.percent}% cap ${decision.capCents}`);
   store.run("INSERT INTO audit (at, action, detail) VALUES (?, ?, ?)", [
     now,
     "apply_goodwill_coupon",
-    `${code} on ${order.number}: ${decision.percent}% cap ${decision.capCents}`,
+    couponDetail,
   ]);
+  logSafe("apply_goodwill_coupon", couponDetail);
   return {
     ok: true,
     summary: `Issued ${code}`,
@@ -406,11 +406,9 @@ export function recordTicket(
     input.summary,
     input.conversationId,
   ]);
-  store.run("INSERT INTO audit (at, action, detail) VALUES (?, ?, ?)", [
-    now,
-    "handoff",
-    `${id} ${input.reason}`,
-  ]);
+  const handoffDetail = maskPii(`${id} ${input.reason}`);
+  store.run("INSERT INTO audit (at, action, detail) VALUES (?, ?, ?)", [now, "handoff", handoffDetail]);
+  logSafe("handoff", handoffDetail);
   return {
     type: "ticket",
     id,

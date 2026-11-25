@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Markdown } from "@/components/markdown";
 import { RichCards } from "@/components/rich-cards";
 import { STARTER_PROMPTS } from "@/lib/demo";
 import type { Card, Citation, ToolTrace } from "@/lib/types";
@@ -29,9 +30,11 @@ const greeting: Bubble = {
 export function ChatPanel({
   pendingPrompt,
   onPromptConsumed,
+  fill = false,
 }: {
   pendingPrompt?: string | null;
   onPromptConsumed?: () => void;
+  fill?: boolean;
 }) {
   const [messages, setMessages] = useState<Bubble[]>([greeting]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -160,7 +163,11 @@ export function ChatPanel({
   return (
     <section
       ref={rootRef}
-      className="flex h-[min(760px,calc(100dvh-6.5rem))] flex-col overflow-hidden rounded-3xl bg-card shadow-[0_20px_60px_-30px_rgba(27,58,50,0.45)] ring-1 ring-border"
+      className={
+        fill
+          ? "flex h-full min-h-0 flex-col overflow-hidden bg-card"
+          : "flex h-[min(760px,calc(100dvh-6.5rem))] flex-col overflow-hidden rounded-3xl bg-card shadow-[0_20px_60px_-30px_rgba(27,58,50,0.45)] ring-1 ring-border"
+      }
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
@@ -180,7 +187,14 @@ export function ChatPanel({
           New chat
         </button>
       </div>
-      <div ref={logRef} data-testid="chat-log" className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div
+        ref={logRef}
+        data-testid="chat-log"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
+      >
         {messages.map((message) => (
           <div key={message.id} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
             <div
@@ -191,7 +205,11 @@ export function ChatPanel({
               }
             >
               {message.role === "assistant" && message.content === "" ? (
-                <p className="text-muted-foreground">Checking the warehouse ledger…</p>
+                <p className="text-muted-foreground" role="status">
+                  Checking the warehouse ledger…
+                </p>
+              ) : message.role === "assistant" ? (
+                <Markdown text={message.content} />
               ) : (
                 <p className="whitespace-pre-wrap">{message.content}</p>
               )}
@@ -203,15 +221,17 @@ export function ChatPanel({
               ) : null}
               {message.citations.length > 0 ? (
                 <p className="mt-2 flex flex-wrap gap-1">
-                  {message.citations.map((citation) => (
-                    <a
-                      key={`${citation.slug}-${citation.section}`}
-                      href={`/policies#${citation.slug}`}
-                      className="rounded-full bg-sand/80 px-2 py-0.5 text-[11px] text-kelp"
-                    >
-                      {citation.title}
-                    </a>
-                  ))}
+                  {message.citations
+                    .filter((citation, index, all) => all.findIndex((item) => item.slug === citation.slug) === index)
+                    .map((citation) => (
+                      <a
+                        key={citation.slug}
+                        href={`/policies#${citation.slug}`}
+                        className="rounded-full bg-sand/80 px-2 py-0.5 text-[11px] text-kelp"
+                      >
+                        {citation.title}
+                      </a>
+                    ))}
                 </p>
               ) : null}
             </div>
@@ -253,6 +273,7 @@ export function ChatPanel({
               void send(draft);
             }
           }}
+          aria-label="Message Rowan"
           placeholder="Ask about an order, a return, or a size…"
           rows={2}
           className="min-h-16 resize-none bg-foam"

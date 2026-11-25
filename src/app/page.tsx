@@ -68,6 +68,29 @@ export default function HomePage() {
               ))}
             </div>
           </section>
+
+          <section className="rounded-3xl bg-card p-5 ring-1 ring-border" aria-labelledby="under-the-hood">
+            <h2 id="under-the-hood" className="font-heading text-2xl text-kelp">
+              Under the hood
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Groq (<code>llama-3.3-70b-versatile</code>) calls the tools when <code>GROQ_API_KEY</code> is set.
+              Gemini is the fallback. With no key, Rowan uses the same tools through a deterministic offline engine, so this demo and CI never depend on a provider.
+            </p>
+            <ol className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+              {[
+                ["1. Channel", "Web chat, the embed, WhatsApp, or Messenger"],
+                ["2. Retrieve", "BM25 plus a local hashed embedding over /kb"],
+                ["3. Tools", "Orders, labels, and coupons are decided in code"],
+                ["4. Desk", "Low confidence and sensitive cases become tickets"],
+              ].map(([title, copy]) => (
+                <li key={title} className="rounded-2xl bg-foam p-3 ring-1 ring-border">
+                  <p className="font-medium text-kelp">{title}</p>
+                  <p className="mt-1 text-muted-foreground">{copy}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
         </div>
         <div className="order-1 lg:sticky lg:top-4 lg:order-2">
           <ChatPanel pendingPrompt={prompt} onPromptConsumed={() => setPrompt(null)} />

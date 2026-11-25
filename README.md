@@ -1,8 +1,12 @@
-# Driftwood Outfitters — support desk
+# Driftwood Outfitters
 
-A portfolio demo of an AI customer-support assistant for **Driftwood Outfitters**, a fictional outdoor shop in Grayhaven, Oregon. The brand, the shoppers, the orders, and the carrier (Northline Freight) are invented. Nothing here charges a card or prints a real label.
+![Driftwood support desk](docs/demo.gif)
 
-The intended public host is [shop-chat.quvantic.com](https://shop-chat.quvantic.com). Locally it runs at http://127.0.0.1:3847.
+Rowan is the customer-support assistant for **Driftwood Outfitters**, a fictional outdoor shop in Grayhaven, Oregon. Shoppers can ask in the web chat, in an embeddable widget, or through the WhatsApp and Messenger webhooks. The orders, the carrier, and the people are synthetic.
+
+Live demo (when deployed): https://shop-chat.quvantic.com
+
+Portfolio demo by Quvantic - fictional brand, not a real business / not client work.
 
 ## Run it
 
@@ -11,62 +15,172 @@ pnpm install
 pnpm dev
 ```
 
-Open http://127.0.0.1:3847. The operator desk is http://127.0.0.1:3847/admin. No API key is required. `LLM_PROVIDER` defaults to `mock`: a deterministic tool router. Copy `.env.example` if you want to point that router at an OpenAI-compatible model later. The tools still decide eligibility, money, and labels.
+Open http://127.0.0.1:3847. The operator desk is http://127.0.0.1:3847/admin. The embed host is http://127.0.0.1:3847/embed-demo.
+
+No API key is required. With `GROQ_API_KEY` unset and `GEMINI_API_KEY` unset, Rowan uses the deterministic offline engine and the same tools. CI does not need secrets.
 
 ```bash
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm eval
+pnpm build
 pnpm e2e
 ```
 
-The first request creates `data/driftwood.sqlite` and loads the seed orders. **Reset ledger** on the desk puts that seed back.
+`npm run build` runs the same Next.js build with zero environment variables.
 
-## What to try
+## Try Maya’s order
 
 Maya Chen, `maya.chen@example.com`, order **DW-10482**:
 
 1. Ask “Where is my order #DW-10482?” Rowan asks for the checkout email and does not open the order.
-2. Give the email. You get an order card and the Northline timeline for **NL-8842193**.
-3. Return the Trail Wool Beanie. You get an RMA and a simulated label (HTML page plus a small PDF).
+2. Give the email. You get the order card and the Northline timeline for **NL-8842193**.
+3. Return the Trail Wool Beanie. You get an RMA and a simulated label.
 
-Other seeded paths:
+## Architecture
 
-| Shopper | Order | What it shows |
-| --- | --- | --- |
-| Jordan Hale | DW-10411 | Still processing, so it can be cancelled |
-| Sam Okonkwo | DW-10390 | Out for delivery, cannot be cancelled |
-| Priya Nair | DW-10220 | Delivered 48 days ago, outside the 30-day window |
-| Elena Voss | DW-10770 | $420 parka. Damage opens a desk ticket, not a label |
-| Noah Ellis | DW-10802 | Late delivery. One 10% courtesy code, cap $25, logged |
-| Avery Quinn | DW-10088 | Refund already issued on RMA-1008 |
-| Camille Bergeron | DW-10601 | In transit to Vancouver. Duties unpaid |
+```mermaid
+flowchart LR
+  web[Web chat and widget]
+  wa[WhatsApp webhook]
+  msg[Messenger webhook]
+  agent[Rowan]
+  groq[Groq llama-3.3-70b]
+  gemini[Gemini flash fallback]
+  offline[Offline engine]
+  kb["/kb hybrid retrieval"]
+  tools[Zod-validated tools]
+  db[(SQLite ledger)]
+  desk[Admin desk]
 
-## How it is put together
+  web --> agent
+  wa --> agent
+  msg --> agent
+  agent --> groq
+  groq -.->|on error| gemini
+  agent --> offline
+  groq --> tools
+  gemini --> tools
+  offline --> tools
+  tools --> kb
+  tools --> db
+  db --> desk
+```
 
-Rowan retrieves shop notes with BM25 (shipping, international, 30-day returns, final sale, refunds, sizing, care, warranty, promos, payments, accounts) and cites the note. Order actions are tools. A matching order number **and** checkout email are required before any of them run. A wrong email gets the same reply as an unknown order.
+Groq is primary when `GROQ_API_KEY` is set (`llama-3.3-70b-versatile`, tool calling). If that call fails, Gemini (`gemini-2.0-flash`, or `GEMINI_MODEL`) is next. If neither key is set, or the model errors before a tool changes the ledger, the offline engine handles the turn. Prices, return windows, coupons, and RMAs are computed in code either way.
 
-| Tool | What the code does |
+Retrieval is hybrid and local: BM25 plus a hashed token-and-trigram embedding over the markdown notes in `/kb`. No embedding API. Low confidence opens a handoff ticket instead of guessing.
+
+## Features
+
+- Landing page with the shop, seeded shoppers, and an under-the-hood diagram.
+- Embed: `<script src="/widget.js" data-title="Driftwood support" async></script>` injects a launcher and an iframe. Try it on `/embed-demo`.
+- Streaming replies, a typing line, quick replies, markdown, and citation chips.
+- Tools: `search_knowledge`, `lookup_order`, `track_shipment`, `start_return`, `start_exchange`, `check_refund_status`, `product_search`, `size_recommendation`, `apply_goodwill_coupon`, `cancel_order`, `handoff_to_agent`. Arguments are checked with Zod.
+- Handoff for “talk to a person”, chargebacks, damaged or missing high-value parcels, low retrieval confidence, and a second failed lookup. The desk shows conversations, tool traces, returns, tickets, and the coupon audit.
+- WhatsApp Cloud API and Messenger webhooks share the same agent. See below.
+- Logs and the audit table mask emails, phone numbers, and card-like digit strings.
+
+## Eval results
+
+`pnpm eval` runs `evals/cases.yaml` (26 cases) against the offline engine and writes `evals/out/scorecard.md` and `evals/out/scorecard.json`.
+
+| Case | Result |
 | --- | --- |
-| `search_knowledge` | Retrieves notes. Weak matches are refused. |
-| `lookup_order` / `track_shipment` | Reads the seed ledger and the carrier timeline |
-| `start_return` | Checks the 30-day window, final sale, and label fee, then issues an RMA |
-| `start_exchange` | Same checks, plus the replacement size. Ships when the return is scanned |
-| `check_refund_status` | Reads returns already on the order |
-| `product_search` / `size_recommendation` | Catalog cards and the shell chart |
-| `apply_goodwill_coupon` | 10% / $25, one per order, only when a promise was missed by more than 2 days. Logged |
-| `cancel_order` | Only while the order is still processing |
-| `handoff_to_agent` | Opens a ticket with a summary. Later turns in that chat do not take more actions |
+| wismo_asks_email | pass |
+| wismo_tracking | pass |
+| return_beanie | pass |
+| final_sale_socks | pass |
+| outside_window | pass |
+| cancel_unshipped | pass |
+| cancel_shipped | pass |
+| refund_status | pass |
+| shipping_ground | pass |
+| uk_no_ship | pass |
+| canada_duty | pass |
+| size_shell | pass |
+| product_rain | pass |
+| goodwill_late | pass |
+| goodwill_over_cap | pass |
+| chargeback_handoff | pass |
+| damaged_parka_handoff | pass |
+| injection_no_reveal | pass |
+| email_mismatch | pass |
+| password_help | pass |
+| off_topic_handoff | pass |
+| human_handoff | pass |
+| exchange_shell | pass |
+| missing_parcel | pass |
+| welcome10_terms | pass |
+| repeated_lookup_failure | pass |
 
-Handoff covers chargebacks and legal threats, damaged or missing high-value parcels (item at or above $250, or an order at or above $400), any missing parcel, and a second failed lookup.
+26/26 passed on the offline engine.
 
-Rich cards in the chat: order summary, tracking timeline, return label, product, size, coupon, and ticket. The desk lists returns (with a status queue), tickets, conversations (transcript plus tool trace), and the coupon audit.
+## Embed snippet
+
+```html
+<script src="https://shop-chat.quvantic.com/widget.js" data-title="Driftwood support" async></script>
+```
+
+The script reads its own origin, so a local page can use `src="/widget.js"`. The launcher is a button with an accessible name, Escape closes it, and the panel is a dialog whose iframe title is the `data-title`.
+
+## Channel adapters
+
+Both routes accept the Meta verify handshake (`hub.mode`, `hub.verify_token`, `hub.challenge`). If `WHATSAPP_VERIFY_TOKEN` or `MESSENGER_VERIFY_TOKEN` is unset, the demo token is `driftwood-demo-verify`. Set a real token before pointing a production webhook here.
+
+| Channel | Verify and receive |
+| --- | --- |
+| WhatsApp | `GET` and `POST /api/channels/whatsapp` |
+| Messenger | `GET` and `POST /api/channels/messenger` |
+
+Text messages are mapped onto Rowan. The HTTP response is `{ ok: true, replies: [...] }` so tests and the demo do not call Meta. `WHATSAPP_TOKEN` and `MESSENGER_PAGE_TOKEN` are reserved for a later outbound send and are not required.
+
+WhatsApp sample:
+
+```json
+{
+  "entry": [
+    {
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              { "from": "15555550199", "type": "text", "text": { "body": "How long does standard shipping take?" } }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Deploy
+
+The app is a Next.js App Router project with `vercel.json`. On Vercel (free tier):
+
+1. Import the repo and leave the build as `npm run build`.
+2. Add a domain `shop-chat.quvantic.com`.
+3. Optional env: `GROQ_API_KEY`, `GEMINI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`, `MESSENGER_VERIFY_TOKEN`.
+
+SQLite on Vercel is local to one instance. The demo reseeds an empty database and the admin page can reset it. For a single demo instance that is enough. Do not add a paid database.
+
+## Screenshots
+
+![Landing](docs/screenshots/landing.png)
+
+![Cited answer](docs/screenshots/citation.png)
+
+![Tracking](docs/screenshots/tracking.png)
+
+![Desk](docs/screenshots/desk.png)
+
+![Embed](docs/screenshots/embed.png)
 
 ## What is real and what is mocked
 
 | Real | Mocked |
 | --- | --- |
-| Retrieval, policy checks, tool gating, the ledger, the admin queue | The carrier, the label PDF, payments, and inventory |
-| The chat and desk UI | The people and the brand |
-
-The optional model path is not required for the demo. If you set `LLM_PROVIDER` later, keep the same tools: prices, windows, and RMAs stay in code.
+| Hybrid retrieval, Zod tool checks, the offline engine, Groq and Gemini when keys exist | Northline Freight, the label PDF, payments, inventory |
+| The chat, widget, webhooks, and desk | The brand and every shopper |

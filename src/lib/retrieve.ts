@@ -65,6 +65,42 @@ function tokenize(value: string): string[] {
     .filter((token) => token.length > 1 && !STOP.has(token));
 }
 
+const DIM = 192;
+
+function hash32(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/** Local hashed embedding. No network and no model download. */
+export function embedTokens(tokens: string[]): Float64Array {
+  const vector = new Float64Array(DIM);
+  for (const token of tokens) {
+    const tokenHash = hash32(token);
+    vector[tokenHash % DIM] += (tokenHash & 2) === 0 ? 1 : -1;
+    const padded = ` ${token} `;
+    for (let index = 0; index < padded.length - 2; index += 1) {
+      const triHash = hash32(padded.slice(index, index + 3));
+      vector[triHash % DIM] += (triHash & 2) === 0 ? 0.35 : -0.35;
+    }
+  }
+  let norm = 0;
+  for (const value of vector) norm += value * value;
+  norm = Math.sqrt(norm) || 1;
+  for (let index = 0; index < DIM; index += 1) vector[index] /= norm;
+  return vector;
+}
+
+export function cosine(left: Float64Array, right: Float64Array): number {
+  let dot = 0;
+  for (let index = 0; index < left.length; index += 1) dot += left[index] * right[index];
+  return dot;
+}
+
 export function allChunks(): Chunk[] {
   return ARTICLES.flatMap((article) =>
     article.sections.map((section) => ({
@@ -90,7 +126,9 @@ export function retrieve(query: string, k = 4): { chunk: Chunk; score: number }[
   const lower = query.toLowerCase();
   const boosted = new Set(BOOSTS.filter((boost) => boost.pattern.test(lower)).map((boost) => boost.slug));
 
-  const ranked = chunks.map((chunk, index) => {
+  const queryVector = embedTokens(queryTokens);
+  const chunkVectors = docs.map((doc) => embedTokens(doc));
+  const lexical = chunks.map((chunk, index) => {
     const doc = docs[index];
     const tf = new Map<string, number>();
     for (const token of doc) tf.set(token, (tf.get(token) ?? 0) + 1);
@@ -103,7 +141,19 @@ export function retrieve(query: string, k = 4): { chunk: Chunk; score: number }[
       const denom = freq + k1 * (1 - b + (b * doc.length) / avg);
       score += idf * ((freq * (k1 + 1)) / denom);
     }
-    if (boosted.has(chunk.slug)) score += 2.4;
+    return score;
+  });
+  const maxLexical = Math.max(...lexical, 0.0001);
+  const ranked = chunks.map((chunk, index) => {
+    const bm25 = lexical[index];
+    const semantic = Math.max(0, cosine(queryVector, chunkVectors[index]));
+    let score = 0;
+    if (bm25 > 0 || boosted.has(chunk.slug)) {
+      score = 0.65 * (bm25 / maxLexical) + 0.35 * semantic;
+      if (boosted.has(chunk.slug)) score += 0.45;
+    } else if (semantic > 0.86) {
+      score = semantic;
+    }
     return { chunk, score };
   });
 
@@ -114,5 +164,5 @@ export function retrieve(query: string, k = 4): { chunk: Chunk; score: number }[
 }
 
 export function confident(hits: { score: number }[]): boolean {
-  return hits.length > 0 && hits[0].score >= 1.15;
+  return hits.length > 0 && hits[0].score >= 0.7;
 }
