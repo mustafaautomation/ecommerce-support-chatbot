@@ -1,9 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
+import { AdminInbox } from "@/components/admin-inbox";
 import { RichCards } from "@/components/rich-cards";
 import { useFetch } from "@/components/use-fetch";
+import { BRAND } from "@/lib/brand";
 import type { Card, Citation, ToolTrace } from "@/lib/types";
 
 type Payload = {
@@ -21,6 +23,7 @@ type Payload = {
 export default function ConversationDetail() {
   const params = useParams<{ id: string }>();
   const { data, error, loading, reload } = useFetch<Payload>(`/api/admin/conversations/${params.id}`);
+  const [joined, setJoined] = useState(false);
   if (loading) return <p className="text-sm text-muted-foreground">Loading the transcript…</p>;
   if (error || !data) {
     return (
@@ -33,14 +36,30 @@ export default function ConversationDetail() {
     );
   }
   return (
+    <AdminInbox activeId={params.id}>
     <div className="space-y-4">
-      <Link href="/admin/conversations" className="text-sm text-tide underline">
-        All conversations
-      </Link>
       <header>
-        <h2 className="font-heading text-2xl text-kelp">{data.conversation.customer_email ?? "Guest"}</h2>
+        <h2 className="text-2xl font-medium tracking-tight">{data.conversation.customer_email ?? "Guest"}</h2>
         <p className="text-sm text-muted-foreground">{data.conversation.status.replaceAll("_", " ")}</p>
         {data.conversation.summary ? <p className="mt-2 text-sm">{data.conversation.summary}</p> : null}
+        <button
+          type="button"
+          className="mt-3 inline-flex h-9 items-center rounded-full bg-accent px-3 text-sm text-accent-foreground"
+          onClick={() => setJoined(true)}
+        >
+          Join as {BRAND.human}
+        </button>
+        <button
+          type="button"
+          data-testid="resume-bot"
+          className="ml-2 mt-3 inline-flex h-9 items-center rounded-full border border-border px-3 text-sm"
+          onClick={() => {
+            void fetch(`/api/admin/conversations/${params.id}/resume`, { method: "POST" }).then(() => setJoined(false));
+          }}
+        >
+          Resume bot
+        </button>
+        {joined ? <p className="mt-2 text-sm">{BRAND.human} joined · human specialist</p> : null}
       </header>
       <div className="space-y-3">
         {data.messages.map((message) => {
@@ -63,5 +82,6 @@ export default function ConversationDetail() {
         })}
       </div>
     </div>
+    </AdminInbox>
   );
 }

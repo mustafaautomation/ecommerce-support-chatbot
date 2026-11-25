@@ -1,21 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
 import { ChatPanel } from "@/components/chat-panel";
 
 export default function EmbedPage() {
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape" && window.parent !== window) {
-        window.parent.postMessage({ type: "driftwood-close" }, window.location.origin);
-      }
-    }
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
   return (
-    <main className="h-dvh bg-foam">
-      <ChatPanel fill />
+    <main className="h-dvh bg-transparent">
+      <ChatPanel
+        fill
+        showClose
+        onClose={() => {
+          if (window.parent !== window) window.parent.postMessage({ type: "driftwood-close" }, window.location.origin);
+        }}
+      />
     </main>
   );
 }

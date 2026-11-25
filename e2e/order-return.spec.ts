@@ -7,15 +7,15 @@ test("tracks DW-10482 and returns the beanie", async ({ page, request }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /find the parcel/i })).toBeVisible();
   await page.locator("[data-hydrated=true]").waitFor();
-  await page.getByTestId("suggestion").filter({ hasText: "Where is my order #DW-10482?" }).click();
+  await page.getByTestId("quick-reply").filter({ hasText: "Where is my order #DW-10482?" }).click();
   await expect(page.getByText(/email used at checkout/i)).toBeVisible();
 
-  await page.getByTestId("chat-input").fill("maya.chen@example.com");
-  await page.getByTestId("chat-send").click();
+  await page.getByTestId("composer-input").fill("maya.chen@example.com");
+  await page.getByTestId("composer-send").click();
   await expect(page.getByTestId("tracking-card")).toContainText("NL-8842193");
   await expect(page.getByTestId("tracking-card")).toContainText("Delivered");
 
-  await page.getByTestId("suggestion").filter({ hasText: "Trail Wool Beanie" }).click();
+  await page.getByTestId("quick-reply").filter({ hasText: "Trail Wool Beanie" }).click();
   const label = page.getByTestId("return-card");
   await expect(label).toBeVisible();
   await expect(label).toContainText(/RMA-/);
@@ -30,5 +30,5 @@ test("desk shows the return and a narrow phone layout still chats", async ({ pag
   await page.goto("/admin/returns");
   await expect(page.getByRole("heading", { name: "RMA-1008" })).toBeVisible();
   await page.goto("/");
-  await expect(page.getByTestId("chat-input")).toBeVisible();
+  await expect(page.getByTestId("composer-input")).toBeVisible();
 });

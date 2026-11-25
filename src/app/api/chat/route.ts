@@ -1,4 +1,4 @@
-import { runAgentTurn } from "@/lib/llm";
+import { llmProvider, runAgentTurn } from "@/lib/llm";
 import { logSafe } from "@/lib/pii";
 import { tooMany } from "@/lib/rate";
 import type { TurnResult } from "@/lib/types";
@@ -22,7 +22,12 @@ function stream(result: TurnResult): Response {
         if (part) send({ type: "token", text: part });
       }
       send({ type: "suggestions", suggestions: result.suggestions });
-      send({ type: "done", messageId: result.messageId, handoff: result.handoff });
+      send({
+        type: "done",
+        messageId: result.messageId,
+        handoff: result.handoff,
+        mode: llmProvider() === "offline" ? "demo" : "live",
+      });
       controller.close();
     },
   });

@@ -4,6 +4,8 @@
 
 Rowan is the customer-support assistant for **Driftwood Outfitters**, a fictional outdoor shop in Grayhaven, Oregon. Shoppers can ask in the web chat, in an embeddable widget, or through the WhatsApp and Messenger webhooks. The orders, the carrier, and the people are synthetic.
 
+The desk is a glass widget: a branded launcher with a teaser, starter chips, order timelines, product cards, citation chips, and a one-tap handoff to the human desk. With no API key it still streams in demo mode.
+
 Live demo (when deployed): https://shop-chat.quvantic.com
 
 Portfolio demo by Quvantic - fictional brand, not a real business / not client work.
