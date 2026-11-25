@@ -51,7 +51,7 @@
       frame.contentWindow.addEventListener("keydown", function (event) {
         if (event.key === "Escape") setOpen(false);
       });
-    } catch (error) {
+    } catch {
       /* cross-origin frames keep the parent Escape listener */
     }
   });

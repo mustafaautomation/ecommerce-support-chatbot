@@ -164,7 +164,7 @@ The app is a Next.js App Router project with `vercel.json`. On Vercel (free tier
 2. Add a domain `shop-chat.quvantic.com`.
 3. Optional env: `GROQ_API_KEY`, `GEMINI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`, `MESSENGER_VERIFY_TOKEN`.
 
-SQLite on Vercel is local to one instance. The demo reseeds an empty database and the admin page can reset it. For a single demo instance that is enough. Do not add a paid database.
+On Vercel the ledger is a SQLite file in `/tmp`, the only writable directory. Each instance seeds itself on the first request and keeps that file until the instance is recycled. The shop notes in `/kb` are read-only and are included in the server trace. Do not add a paid database.
 
 ## Screenshots
 

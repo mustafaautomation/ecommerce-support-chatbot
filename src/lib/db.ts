@@ -37,6 +37,9 @@ function wrap(db: DatabaseSync): Store {
 
 export function databasePath(): string {
   if (process.env.DW_DB_PATH) return process.env.DW_DB_PATH;
+  // Vercel serverless can write only to /tmp. The file is created on first
+  // request and reseeded when that instance has no ledger yet.
+  if (process.env.VERCEL) return path.join("/tmp", "driftwood.sqlite");
   return path.join(process.cwd(), "data", "driftwood.sqlite");
 }
 

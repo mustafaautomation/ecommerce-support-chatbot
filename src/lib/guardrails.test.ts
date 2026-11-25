@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatchTool } from "@/lib/dispatch";
-import { resetStore, getStore } from "@/lib/db";
+import { databasePath, resetStore, getStore } from "@/lib/db";
 import { llmProvider, runAgentTurn } from "@/lib/llm";
 import { maskPii } from "@/lib/pii";
 import { cosine, embedTokens } from "@/lib/retrieve";
@@ -26,6 +26,21 @@ describe("guardrails and retrieval", () => {
       conversationId: null,
     });
     expect(result.outcome.ok).toBe(false);
+  });
+
+  it("keeps the ledger in /tmp when Vercel cannot write the project directory", () => {
+    const previousPath = process.env.DW_DB_PATH;
+    const previousVercel = process.env.VERCEL;
+    delete process.env.DW_DB_PATH;
+    process.env.VERCEL = "1";
+    try {
+      expect(databasePath()).toBe("/tmp/driftwood.sqlite");
+    } finally {
+      if (previousPath === undefined) delete process.env.DW_DB_PATH;
+      else process.env.DW_DB_PATH = previousPath;
+      if (previousVercel === undefined) delete process.env.VERCEL;
+      else process.env.VERCEL = previousVercel;
+    }
   });
 
   it("keeps a local embedding and at least 15 knowledge files", () => {
