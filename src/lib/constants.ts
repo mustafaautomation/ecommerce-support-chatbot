@@ -1,0 +1,10 @@
+export const RETURN_WINDOW_DAYS = 30;
+export const LABEL_FEE_CENTS = 795;
+export const HIGH_VALUE_ITEM_CENTS = 25_000;
+export const HIGH_VALUE_ORDER_CENTS = 40_000;
+export const GOODWILL_PERCENT = 10;
+export const GOODWILL_CAP_CENTS = 2_500;
+export const LATE_GRACE_DAYS = 2;
+export const FREE_SHIPPING_CENTS = 7_500;
+export const ASSISTANT_NAME = "Rowan";
+export const BRAND = "Driftwood Outfitters";
