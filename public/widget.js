@@ -46,23 +46,45 @@
   var frame = document.createElement("iframe");
   frame.src = origin + "/embed";
   frame.title = title;
-  frame.addEventListener("load", function () {
+  function frameEscapeReady() {
     try {
-      frame.contentWindow.addEventListener("keydown", function (event) {
-        if (event.key === "Escape") setOpen(false);
-      });
+      var doc = frame.contentDocument;
+      return !!(doc && doc.documentElement && doc.documentElement.dataset.dwEscape === "1");
+    } catch {
+      return false;
+    }
+  }
+  function bindFrameEscape() {
+    try {
+      var doc = frame.contentDocument;
+      if (!doc || !doc.documentElement || doc.documentElement.dataset.dwEscape === "1") return;
+      var href = doc.location && doc.location.href;
+      if (!href || href === "about:blank") return;
+      doc.documentElement.dataset.dwEscape = "1";
+      doc.addEventListener(
+        "keydown",
+        function (event) {
+          if (event.key === "Escape") setOpen(false);
+        },
+        true,
+      );
+      if (!panel.hidden) frame.focus();
     } catch {
       /* cross-origin frames keep the parent Escape listener */
     }
-  });
+  }
+  frame.addEventListener("load", bindFrameEscape);
+  setInterval(bindFrameEscape, 50);
   frame.style.cssText = "width:100%;height:100%;border:0;background:#fbf7f1";
   panel.appendChild(frame);
   function setOpen(open) {
     panel.hidden = !open;
     button.setAttribute("aria-expanded", open ? "true" : "false");
     button.textContent = open ? "Close" : "Chat";
-    if (open) frame.focus();
-    else button.focus();
+    if (open) {
+      bindFrameEscape();
+      if (frameEscapeReady()) frame.focus();
+    } else button.focus();
   }
   button.addEventListener("click", function () {
     setOpen(panel.hidden);

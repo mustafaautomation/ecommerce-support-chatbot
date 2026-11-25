@@ -10,8 +10,8 @@ export default function EmbedPage() {
         window.parent.postMessage({ type: "driftwood-close" }, window.location.origin);
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
   return (
     <main className="h-dvh bg-foam">
